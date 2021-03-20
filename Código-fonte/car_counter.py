@@ -7,6 +7,7 @@ Created on Sat Mar 20 14:56:29 2021
 
 import cv2
 import numpy as np
+from time import sleep
 
 def pega_centro(x, y, largura, altura):
     """
@@ -37,20 +38,23 @@ def show_info(frame1, dilatada):
     text = f'Carros: {carros}'
     cv2.putText(frame1, text, (450, 70), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 5)
     cv2.imshow("Video Original", frame1)
-    cv2.imshow("Detectar", dilatada)
+    #cv2.imshow("Detectar", dilatada)
     
 largura_min = 80  # Largura minima do retangulo
 altura_min = 80  # Altura minima do retangulo
 offset = 6  # Erro permitido entre pixel
 pos_linha = 550  # Posição da linha de contagem
+delay = 30 #FPS do vídeo
 detec = []
 
 carros = caminhoes = 0
-cap = cv2.VideoCapture('highway_2.mp4')
+cap = cv2.VideoCapture('highway_3.mp4')
 subtracao = cv2.bgsegm.createBackgroundSubtractorMOG()  # Pega o fundo e subtrai do que está se movendo
 
 while True:
     ret, frame1 = cap.read()  # Pega cada frame do vídeo
+    tempo = float(1/delay)
+    sleep(tempo)
     grey = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)  # Pega o frame e transforma para preto e branco
     blur = cv2.GaussianBlur(grey, (3, 3), 5)  # Faz um blur para tentar remover as imperfeições da imagem
     img_sub = subtracao.apply(blur)  # Faz a subtração da imagem aplicada no blur
