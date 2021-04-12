@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project( carCounter )
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+add_executable( carCounter carCounter.cpp )
+target_link_libraries( carCounter ${OpenCV_LIBS} )
