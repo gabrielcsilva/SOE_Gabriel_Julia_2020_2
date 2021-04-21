@@ -66,13 +66,12 @@ subtracao = createBackgroundSubtractorMOG2();
 for(;;)
 {
     Mat frame, grey, blur, img_sub, img_dilat, img_dilat_2, img_open, img_close;
-    
     cap >> frame; // get a new frame from camera
     
     cvtColor(frame, grey, COLOR_RGB2GRAY);  //Pega o frame e transforma para preto e branco
     GaussianBlur(grey, blur, Size(3, 3), 0, 0);  //Faz um blur para tentar remover as imperfeições da imagem
     
-    subtracao->apply(frame, img_sub);  //Faz a subtração da imagem aplicada no blur
+    subtracao->apply(blur, img_sub);  //Faz a subtração da imagem aplicada no blur
     
     //Dilate
     Mat dilat = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
@@ -84,7 +83,7 @@ for(;;)
    
 	//Dilate
 	Mat dilat2 = getStructuringElement(MORPH_ELLIPSE, Size(9, 9));
-    dilate(img_dilat, img_dilat_2, dilat2); 
+    dilate(img_open, img_dilat_2, dilat2); 
    
 	//Closing
 	Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(5, 5)); 
@@ -92,7 +91,7 @@ for(;;)
      
     std::vector<std::vector<cv::Point> > contorno;
      
-    findContours(img_open, contorno, RETR_TREE, CHAIN_APPROX_SIMPLE);
+    findContours(img_close, contorno, RETR_TREE, CHAIN_APPROX_SIMPLE);
     line(frame, Point(25, pos_linha), Point(1200, pos_linha), (255, 127, 0), 3);
     
     for (int i=0; i < contorno.size(); i++)
@@ -123,7 +122,7 @@ for(;;)
 		}
 	//printf("Um frame\n");
     setInfo(detecX, detecY, frame);
-    //imshow("Video", img_close);
+    imshow("Video", img_close);
     if(waitKey(30) >= 0) break;
 }
 return 0;
