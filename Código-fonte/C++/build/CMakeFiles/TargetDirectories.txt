@@ -1,3 +1,0 @@
-/home/pi/Documents/Git/SOE_Gabriel_Julia_2020_2/Código-fonte/C++/build/CMakeFiles/rebuild_cache.dir
-/home/pi/Documents/Git/SOE_Gabriel_Julia_2020_2/Código-fonte/C++/build/CMakeFiles/carCounter.dir
-/home/pi/Documents/Git/SOE_Gabriel_Julia_2020_2/Código-fonte/C++/build/CMakeFiles/edit_cache.dir

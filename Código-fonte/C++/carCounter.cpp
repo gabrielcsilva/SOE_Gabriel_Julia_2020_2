@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include <opencv2/bgsegm.hpp>
 #include <stdio.h>
 #include <iostream>
 #include <list>
@@ -15,42 +16,39 @@ int largura_min = 80;
 int altura_min = 80;
 int offset = 6;
 int pos_linha = 550;
-std::list<int> detecX;
-std::list<int> detecY;
+std::vector< vector<int> > detec;
 
-int pegaLargura(int x, int largura)
+std::vector<int> pegaCentro(int x, int y, int largura, int altura)
 {
-	int x1 = largura % 2;
-	int cx = x + x1;
-	return cx;
-	}
+    int x1 = largura / 2;
+    int cx = x + x1;
+    int y1 = altura / 2;
+    int cy = y + y1;
+    
+    std::vector<int> centro = {cx, cy};
+    
+    return centro;
+    }
 
-int pegaAltura(int y, int altura)
+	
+void setInfo(vector< vector<int> > detec, Mat frame, int pos_linha, int offset)
 {
-	int y1 = altura % 2;
-	int cy = y + y1;
-	return cy;
-	}
-
-void setInfo(std::list<int> detecX, std::list<int> detecY, Mat frame)
-{
-	int sizeX = detecX.size();
-	int sizeY = detecY.size();
-	for (int x=0; x < sizeX; x++) //Tamanho do array
+    for(int i=0; i < detec.size(); i++)
+    {
+	 if(pos_linha + offset > detec[i][1])
 	{
-		for (int y=0; y < sizeY; y++)
-		{
-			if(pos_linha + offset > y && pos_linha - offset < y)
-			{
-				carros++;
-				line(frame, Point(25, pos_linha), Point(1200, pos_linha), (0, 127, 255), 3);
-				//detecX.pop_back();
-				//detecY.pop_back();
-				printf("Carros detectados ate o momento: %d\n", carros);
-				}
-			}
+	    if(detec[i][1] > pos_linha - offset)
+	    {
+		cout << "X" << i << ", ";
+		cout << "Eixo X" << detec[i][0] << ", ";
+		cout << "Eixo Y" << detec[i][1] << endl;
+		carros++;
+		line(frame, Point(25, pos_linha), Point(1200, pos_linha), (0, 127, 255), 3);
+		cout << "Carros detectados ate o momento:" << carros << endl;
 		}
+	    }
 	}
+    }	
 
 int main(int argc, char** argv)
 {
@@ -61,15 +59,15 @@ if(!cap.isOpened())  // check if we succeeded
 
 //create Background Subtractor objects
 Ptr<BackgroundSubtractor> subtracao;
-subtracao = createBackgroundSubtractorMOG2();
+subtracao = bgsegm::createBackgroundSubtractorMOG();
 
 for(;;)
 {
     Mat frame, grey, blur, img_sub, img_dilat, img_dilat_2, img_open, img_close;
     cap >> frame; // get a new frame from camera
     
-    cvtColor(frame, grey, COLOR_RGB2GRAY);  //Pega o frame e transforma para preto e branco
-    GaussianBlur(grey, blur, Size(3, 3), 0, 0);  //Faz um blur para tentar remover as imperfeições da imagem
+    cvtColor(frame, grey, COLOR_BGR2GRAY);  //Pega o frame e transforma para preto e branco
+    GaussianBlur(grey, blur, Size(3, 3), 5);  //Faz um blur para tentar remover as imperfeições da imagem
     
     subtracao->apply(blur, img_sub);  //Faz a subtração da imagem aplicada no blur
     
@@ -78,15 +76,15 @@ for(;;)
     dilate(img_sub, img_dilat, dilat); 
     
     //Opening
-    Mat open = getStructuringElement(MORPH_ELLIPSE, Size(2, 2)); 
+    Mat open = getStructuringElement(MORPH_ELLIPSE, Size(5, 5)); 
     morphologyEx(img_dilat, img_open, MORPH_OPEN, open);
    
-	//Dilate
-	Mat dilat2 = getStructuringElement(MORPH_ELLIPSE, Size(9, 9));
+    //Dilate
+    Mat dilat2 = getStructuringElement(MORPH_ELLIPSE, Size(9, 9));
     dilate(img_open, img_dilat_2, dilat2); 
    
-	//Closing
-	Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(5, 5)); 
+    //Closing
+    Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(5, 5)); 
     morphologyEx(img_dilat_2, img_close, MORPH_CLOSE, kernel);    
      
     std::vector<std::vector<cv::Point> > contorno;
@@ -96,34 +94,30 @@ for(;;)
     
     for (int i=0; i < contorno.size(); i++)
     {
-		for (int j=0; j < contorno[i].size(); j++)
-		{
-			std::vector<cv::Rect> boundRect( contorno[i].size() );
-			boundRect[j] = boundingRect(contorno[i]);
-			
-			int x = boundRect[j].x;
-			int y = boundRect[j].y;
-			int w = boundRect[j].width;
-			int h = boundRect[j].height;
-			
-			bool validar_contorno = (w >= largura_min) && (h >= altura_min);
-			if (!validar_contorno)
-				continue;
+	cv::Rect boundRect = boundingRect(contorno[i]);
+	
+	int x = boundRect.x;
+	int y = boundRect.y;
+	int w = boundRect.width;
+	int h = boundRect.height;
+	
+	bool validar_contorno = (w >= largura_min) && (h >= altura_min);
+	if (!validar_contorno)
+		continue;
 
-			rectangle(frame, Point(x, y), Point(x + w, y + h), (0, 255, 0), 2);
-			
-			int largura = pegaLargura(x, w);
-			int altura = pegaAltura(y, h);
-			detecX.push_back(largura);
-			detecY.push_back(altura);
-			
-			circle(frame, Point(largura, altura), 4, (0, 0, 255), -1);
-			}
-		}
-	//printf("Um frame\n");
-    setInfo(detecX, detecY, frame);
-    imshow("Video", img_close);
+	rectangle(frame, Point(x, y), Point(x + w, y + h), (0, 255, 0), 2);
+	
+	std::vector<int> centro = pegaCentro(x, y, w, h);
+	detec.push_back(centro);
+	
+	circle(frame, Point(centro[0], centro[1]), 4, (0, 0, 255), -1);
+	}
+    setInfo(detec, frame, pos_linha, offset);
+    imshow("Video", frame);
+    //cout <<  "Carros detectados" << carros;
+    //imshow("Video", img_close);
     if(waitKey(30) >= 0) break;
+    detec.clear();
 }
 return 0;
 }
