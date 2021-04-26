@@ -14,6 +14,8 @@ int caminhoes = 0;
 
 int largura_min = 80;
 int altura_min = 80;
+int largura_max = 280;
+int altura_max = 280;
 int offset = 6;
 int pos_linha = 550;
 std::vector< vector<int> > detec;
@@ -101,7 +103,7 @@ for(;;)
 	int w = boundRect.width;
 	int h = boundRect.height;
 	
-	bool validar_contorno = (w >= largura_min) && (h >= altura_min);
+	bool validar_contorno = (w >= largura_min) && (h >= altura_min) && (w < largura_max) && (h < altura_max);
 	if (!validar_contorno)
 		continue;
 
