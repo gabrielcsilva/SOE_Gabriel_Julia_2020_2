@@ -5,6 +5,8 @@
 #include <list>
 #include <iterator>
 #include <unistd.h>
+#include <dlib/image_processing.h>
+
 using namespace cv;
 using namespace std;
 
@@ -17,6 +19,11 @@ int altura_min = 80;
 int offset = 6;
 int pos_linha = 550;
 std::vector< vector<int> > detec;
+
+dlib::correlation_tracker tracker;
+std::vector< dlib::correlation_tracker > trackerList;
+std::vector< bool > id;
+int matchedId;
 
 std::vector<int> pegaCentro(int x, int y, int largura, int altura)
 {
@@ -31,7 +38,7 @@ std::vector<int> pegaCentro(int x, int y, int largura, int altura)
     }
 
 	
-void setInfo(vector< vector<int> > detec, Mat frame, int pos_linha, int offset)
+void setInfo(vector< vector<int> > detec, Mat frame, int pos_linha, int offset, vector< dlib::correlation_tracker > trackerList, vector < bool > id)
 {
     for(int i=0; i < detec.size(); i++)
     {
@@ -39,16 +46,54 @@ void setInfo(vector< vector<int> > detec, Mat frame, int pos_linha, int offset)
 	{
 	    if(detec[i][1] > pos_linha - offset)
 	    {
-		cout << "X" << i << ", ";
-		cout << "Eixo X" << detec[i][0] << ", ";
-		cout << "Eixo Y" << detec[i][1] << endl;
-		carros++;
-		line(frame, Point(25, pos_linha), Point(1200, pos_linha), (0, 127, 255), 3);
-		cout << "Carros detectados ate o momento:" << carros << endl;
+		for (int i = 0; i < trackerList.size(); i++)
+		{
+		    dlib::rectangle dRect = trackerList[i].get_position();
+		    float startY = dRect.top();
+		    float endY = dRect.bottom();
+		    
+		    dlib::point center = dRect.center();
+		    
+		    if(center[0] == detec[i][0] && center[1] = detec[i][1])
+		    {
+			if(id[i] == false)
+			{
+			    id[i] = true;
+			    carros++;
+			    line(frame, Point(25, pos_linha), Point(1200, pos_linha), (0, 127, 255), 3);
+			    cout << "Carros detectados ate o momento:" << carros << endl;
+			    }
+			else
+			{
+			    if (endY > 720)
+				trackerList.pop_back();
+				id.pop_back();
+			    if (startY < 0)
+				trackerList.pop_back();
+				id.pop_back();
+				}
+			    }
+			}		
+		//carros++;
+		//line(frame, Point(25, pos_linha), Point(1200, pos_linha), (0, 127, 255), 3);
+		//cout << "Carros detectados ate o momento:" << carros << endl;
 		}
 	    }
 	}
     }	
+
+bool pointInRect(int x, int y, int w, int h, int cx, int cy)
+{
+    int x1, y1;
+    x1 = cx;
+    y1 = cy;
+    if ((x < x1) && (x1 < x+w))
+        if ((y < y1) && (y1 < y+h))
+            return true;
+    else
+        return false;
+    }
+
 
 int main(int argc, char** argv)
 {
@@ -95,6 +140,7 @@ for(;;)
     for (int i=0; i < contorno.size(); i++)
     {
 	cv::Rect boundRect = boundingRect(contorno[i]);
+	dlib::rectangle dRect;
 	
 	int x = boundRect.x;
 	int y = boundRect.y;
@@ -109,12 +155,43 @@ for(;;)
 	
 	std::vector<int> centro = pegaCentro(x, y, w, h);
 	detec.push_back(centro);
-	
 	circle(frame, Point(centro[0], centro[1]), 4, (0, 0, 255), -1);
+	
+	matchedId = -1;
+	
+	for (int i = 0; i < trackerList.size(); i++)
+	{
+	    dlib::rectangle dRect = trackerList[i].get_position();
+	    float startX = dRect.left();
+	    float startY = dRect.top();
+	    float endX = dRect.right();
+	    float endY = dRect.bottom();
+	    
+	    std::vector<int> trackerCenter = pegaCentro((int)startX, (int)startY, (int)endX, (int)endY);
+	    bool t_location_chk = pointInRect(x, y, w, h, centro[0], centro[1]);
+	    
+	    if(t_location_chk)
+	    {
+		matchedId = i;
+		}
+		
+	    }
+	    
+	if (matchedId == -1)
+	{
+	    tracker.start_track(frame, centered_rect(Point(centro[0], centro[1]), w, h));
+	    trackerList.push_back(tracker);
+	    id.push_back(false);
+	    }
+
 	}
-    setInfo(detec, frame, pos_linha, offset);
+    
+    dlib::array2d< dlib::bgr_pixel > dlibFrame
+    dlib::assign_image(dlibFrame, dlib::cv_image<dlib::bgr_pixel>(frame));
+    tracker.update(dlibFrame);
+    
+    setInfo(detec, frame, pos_linha, offset, trackerList, id);
     imshow("Video", frame);
-    //cout <<  "Carros detectados" << carros;
     //imshow("Video", img_close);
     if(waitKey(30) >= 0) break;
     detec.clear();
