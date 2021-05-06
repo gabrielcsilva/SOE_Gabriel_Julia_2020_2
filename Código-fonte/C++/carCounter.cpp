@@ -5,10 +5,27 @@
 #include <list>
 #include <iterator>
 #include <unistd.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <curl/curl.h>
+#include <curl/easy.h>
+
 using namespace cv;
 using namespace std;
 
 //Variaveis globais
+#define THINGSPEAK_HOST "https://api.thingspeak.com"
+#define API_KEY "A9480XPE4UHD4571"
+#define TIMEOUT_IN_SECS 15 
+
+bool flag = false;
+void handle_alarm( int sig ) {
+    alarm(15);
+    signal( SIGALRM, handle_alarm );
+    flag = true;
+    
+}
 int carros = 0;
 int caminhoes = 0;
 
@@ -54,7 +71,19 @@ void setInfo(vector< vector<int> > detec, Mat frame, int pos_linha, int offset)
 
 int main(int argc, char** argv)
 {
-	
+signal( SIGALRM, handle_alarm ); // Install handler first,
+alarm(15); // before scheduling it to be called.
+int aux =0;
+double k=0;
+	// ------------------------- Curl Initialization ---------------------------
+CURLcode res = curl_global_init(CURL_GLOBAL_ALL);
+if (res != CURLE_OK) {
+	std::cerr << "Curl global initialization failed, exiting" << std::endl;
+	return res;
+}
+	// Initialize a curl object.
+CURL *curl = curl_easy_init();
+
 VideoCapture cap("../../Videos/highway_3.mp4"); // open the video file
 if(!cap.isOpened())  // check if we succeeded
     return -1;
@@ -65,9 +94,14 @@ subtracao = bgsegm::createBackgroundSubtractorMOG();
 
 for(;;)
 {
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+
+    char url[128];
+    
     Mat frame, grey, blur, img_sub, img_dilat, img_dilat_2, img_open, img_close;
     cap >> frame; // get a new frame from camera
-    
+    k++;//numero do frame
     cvtColor(frame, grey, COLOR_BGR2GRAY);  //Pega o frame e transforma para preto e branco
     GaussianBlur(grey, blur, Size(3, 3), 5);  //Faz um blur para tentar remover as imperfeições da imagem
     
@@ -116,10 +150,33 @@ for(;;)
 	}
     setInfo(detec, frame, pos_linha, offset);
     imshow("Video", frame);
+    if(flag==true)
+    {
+	CURL *curl = curl_easy_init();
+	sprintf(url,"%s/update?api_key=%s&field1=%i&field2=%.2f", THINGSPEAK_HOST, API_KEY,carros,k/30);
+	printf("%s/n",url);
+	// Set the URL for the curl object.
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	// Perform the request.
+	res = curl_easy_perform(curl);
+	if (res != CURLE_OK) 
+	{
+	    fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+	}
+	// Clear bytes
+	memset(url, 0, sizeof(url));
+	curl_easy_cleanup(curl);
+	flag=false;
+    }
+
+   
     //cout <<  "Carros detectados" << carros;
     //imshow("Video", img_close);
+    aux = carros;
     if(waitKey(30) >= 0) break;
     detec.clear();
 }
+curl_global_cleanup();
+
 return 0;
 }
